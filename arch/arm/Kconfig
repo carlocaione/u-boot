@@ -577,6 +577,9 @@ config ARCH_ZYNQMP
 	select DM_MMC
 	select DM_SERIAL
 
+config ARCH_MESON
+	bool "Support for Amlogic Meson Platform"
+
 config TEGRA
 	bool "NVIDIA Tegra"
 
@@ -759,6 +762,8 @@ source "arch/arm/mach-orion5x/Kconfig"
 source "arch/arm/cpu/armv7/rmobile/Kconfig"
 
 source "arch/arm/mach-rockchip/Kconfig"
+
+source "arch/arm/mach-meson/Kconfig"
 
 source "arch/arm/mach-s5pc1xx/Kconfig"
 

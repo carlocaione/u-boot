@@ -1,0 +1,29 @@
+if ARCH_MESON
+
+config MESON_GXBB
+	bool "Meson GXBaby"
+	select ARM64
+	select DM
+	select DM_SERIAL
+	help
+	  The Amlogic Meson GXBaby (S905) is a ARM-base SoC with a
+	  quad-core Cortex-A53.
+
+if MESON_GXBB
+
+config TARGET_ODROID_C2
+	bool "ODROID-C2"
+	help
+	  ODROID-C2 is a Meson GXBaby-based board.
+
+endif
+
+config SYS_SOC
+	default "meson"
+
+config SYS_MALLOC_F_LEN
+	default 0x1000
+
+source "board/hardkernel/odroid-c2/Kconfig"
+
+endif
