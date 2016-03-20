@@ -11,55 +11,28 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-static const void *get_memory_reg_prop(const void *fdt, int *lenp)
-{
-	int offset;
-
-	offset = fdt_path_offset(fdt, "/memory");
-	if (offset < 0)
-		return NULL;
-
-	return fdt_getprop(fdt, offset, "reg", lenp);
-}
-
 int dram_init(void)
 {
 	const fdt32_t *val;
+	int offset;
 	int len;
 
-	val = get_memory_reg_prop(gd->fdt_blob, &len);
-	if (len < sizeof(*val))
+	offset = fdt_path_offset(gd->fdt_blob, "/memory");
+	if (offset < 0)
 		return -EINVAL;
 
-	gd->ram_size = fdt32_to_cpu(*(val + 1));
+	val = fdt_getprop(gd->fdt_blob, offset, "reg", &len);
+	if (len < sizeof(*val) * 4)
+		return -EINVAL;
 
-	debug("DRAM size = %08lx\n", (unsigned long)gd->ram_size);
+	/* Don't use fdt64_t to avoid unaligned access */
+	gd->ram_size = (uint64_t)fdt32_to_cpu(val[2]) << 32;
+	gd->ram_size |= fdt32_to_cpu(val[3]);
+
+	debug("DRAM size = %lu MiB\n", (unsigned long)gd->ram_size >> 10);
 
 	return 0;
 }
-
-void dram_init_banksize(void)
-{
-	const fdt32_t *val;
-	int len, i;
-
-	val = get_memory_reg_prop(gd->fdt_blob, &len);
-	if (len < 0)
-		return;
-
-	len /= sizeof(*val);
-	len /= 2;
-
-	for (i = 0; i < len; i++) {
-		gd->bd->bi_dram[i].start = fdt32_to_cpu(*val++);
-		gd->bd->bi_dram[i].size = fdt32_to_cpu(*val++);
-
-		debug("DRAM bank %d: start = %08lx, size = %08lx\n",
-		      i, (unsigned long)gd->bd->bi_dram[i].start,
-		      (unsigned long)gd->bd->bi_dram[i].size);
-	}
-}
-
 
 int board_init(void)
 {
