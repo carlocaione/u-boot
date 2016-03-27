@@ -452,6 +452,9 @@ config ARCH_KEYSTONE
 	select SUPPORT_SPL
 	select CMD_POWEROFF
 
+config ARCH_MESON
+	bool "Amlogic Meson"
+
 config ARCH_MX7
 	bool "Freescale MX7"
 	select CPU_V7
@@ -761,6 +764,8 @@ source "arch/arm/cpu/armv7/omap5/Kconfig"
 source "arch/arm/mach-orion5x/Kconfig"
 
 source "arch/arm/cpu/armv7/rmobile/Kconfig"
+
+source "arch/arm/mach-meson/Kconfig"
 
 source "arch/arm/mach-rockchip/Kconfig"
 
