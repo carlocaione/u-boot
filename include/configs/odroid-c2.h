@@ -50,6 +50,14 @@
 #define CONFIG_SYS_LONGHELP
 #define CONFIG_CMDLINE_EDITING
 
+#define CONFIG_MMC			1
+#define CONFIG_GENERIC_MMC		1
+#define CONFIG_MMC_MESON		1
+#define CONFIG_MMC_MESON_SD_PORT	1
+#define CONFIG_CMD_MMC			1
+#define CONFIG_FS_FAT			1
+#define CONFIG_FS_EXT4			1
+
 #include <config_distro_defaults.h>
 
 #endif /* __CONFIG_H */
