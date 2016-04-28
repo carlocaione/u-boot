@@ -21,21 +21,26 @@ static int aml_sd_emmc_init(unsigned port)
 	switch (port) {
 	case SDIO_PORT_A:
 		setbits_le32(P_PERIPHS_PIN_MUX_8, 0x3f);
+		printf("PORT A\n");
 		break;
 	case SDIO_PORT_B:
 		if (aml_sd_debug_board_1bit_flag)
 			setbits_le32(P_PERIPHS_PIN_MUX_2, (0x3 << 10) | (0x1 << 15));
 		else
 			setbits_le32(P_PERIPHS_PIN_MUX_2, 0x3f << 10);
+		printf("PORT B\n");
 		break;
 	case SDIO_PORT_C:
 		clrbits_le32(P_PERIPHS_PIN_MUX_2, (0x1f << 22));
 		setbits_le32(P_PERIPHS_PIN_MUX_4, (0x3 << 18) | (3 << 30));
+		printf("PORT C\n");
 		break;
 	default:
+		printf("PORT default\n");
 		return -1;
 	}
 
+	printf("PORT stocazzo\n");
 	return 0;
 }
 
@@ -43,17 +48,25 @@ static int aml_sd_emmc_detect(unsigned port)
 {
 	if (port == SDIO_PORT_B) {
 		setbits_le32(P_PREG_PAD_GPIO5_EN_N, 1 << 29);
+		printf("ok, is port B\n");
 		if ((readl(P_PERIPHS_PIN_MUX_8) & (3 << 9))) {
-			if (!(readl(P_PREG_PAD_GPIO2_I) & (1 << 24)))
+			if (!(readl(P_PREG_PAD_GPIO2_I) & (1 << 24))) {
+				printf("aml_sd_debug_board_1bit_flag = 1\n");
 				aml_sd_debug_board_1bit_flag = 1;
-			else
+			} else {
+				printf("aml_sd_debug_board_1bit_flag = 0\n");
 				aml_sd_debug_board_1bit_flag = 0;
+			}
+			printf("===> aml_sd_debug_board_1bit_flag = %d\n", aml_sd_debug_board_1bit_flag);
 
-			if (!aml_sd_debug_board_1bit_flag)
+			if (!aml_sd_debug_board_1bit_flag) {
+				printf("aml_sd_debug_board_1bit_flag = 0, returning 1\n");
 				return 1;
+			}
 		}
 	}
 
+	printf("returning 0\n");
 	return 0;
 }
 
