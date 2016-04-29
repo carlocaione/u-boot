@@ -29,22 +29,21 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-static void aml_sd_cfg_swth(struct mmc *mmc)
+static void meson_mmc_set_ios(struct mmc *mmc)
 {
-	unsigned sd_emmc_clkc =	0, clk, clk_src, clk_div;
-	uint32_t vconf;
+	unsigned meson_mmc_clkc = 0;
+	unsigned clk, clk_src, clk_div;
+	unsigned vconf;
 	unsigned bus_width;
-	struct meson_sd_platdata *aml_priv;
-	struct sd_emmc_global_regs *sd_emmc_reg;
-	struct sd_emmc_config *sd_emmc_cfg;
+	struct meson_mmc_platdata *pdata;
+	struct meson_mmc_global_regs *meson_mmc_reg;
+	struct meson_mmc_config *meson_mmc_cfg;
 
-	printf("=======> %s\n", __func__);
-	aml_priv = mmc->priv;
-	sd_emmc_reg = aml_priv->sd_emmc_reg;
-	sd_emmc_cfg = (struct sd_emmc_config *) &vconf;
+	pdata = mmc->priv;
+	meson_mmc_reg = pdata->meson_mmc_reg;
+	meson_mmc_cfg = (struct meson_mmc_config *) &vconf;
 	bus_width = (mmc->bus_width == 1) ? 0 : (mmc->bus_width / 4);
 
-	printf("=======> %s 1, sd_emmc_reg:0x%08x\n", __func__, sd_emmc_reg);
 	if (mmc->clock > 12000000) {
 		clk = SD_EMMC_CLKSRC_DIV2;
 		clk_src = 1;
@@ -54,14 +53,12 @@ static void aml_sd_cfg_swth(struct mmc *mmc)
 	}
 	clk_div= clk / mmc->clock;
 
-	printf("=======> %s 1a\n", __func__);
 	if (mmc->clock < mmc->cfg->f_min)
 		mmc->clock=mmc->cfg->f_min;
 	if (mmc->clock > mmc->cfg->f_max)
 		mmc->clock=mmc->cfg->f_max;
 
-	printf("=======> %s 1b\n", __func__);
-	sd_emmc_clkc = ((0 << Cfg_irq_sdio_sleep_ds) |
+	meson_mmc_clkc = ((0 << Cfg_irq_sdio_sleep_ds) |
 			(0 << Cfg_irq_sdio_sleep) |
 			(1 << Cfg_always_on) |
 			(0 << Cfg_rx_delay) |
@@ -73,74 +70,47 @@ static void aml_sd_cfg_swth(struct mmc *mmc)
 			(clk_src << Cfg_src) |
 			(clk_div << Cfg_div));
 
-	printf("=======> %s 1c\n", __func__);
-	sd_emmc_reg->gclock = sd_emmc_clkc;
-	printf("=======> %s 1d\n", __func__);
-	vconf = sd_emmc_reg->gcfg;
+	meson_mmc_reg->gclock = meson_mmc_clkc;
+	vconf = meson_mmc_reg->gcfg;
 
-	printf("=======> %s 2\n", __func__);
-	sd_emmc_cfg->bus_width = bus_width;
-	sd_emmc_cfg->bl_len = 9;
-	sd_emmc_cfg->resp_timeout = 7;
-	sd_emmc_cfg->rc_cc = 4;
-	sd_emmc_reg->gcfg = vconf;
-	printf("=======> %s out\n", __func__);
+	meson_mmc_cfg->bus_width = bus_width;
+	meson_mmc_cfg->bl_len = 9;
+	meson_mmc_cfg->resp_timeout = 7;
+	meson_mmc_cfg->rc_cc = 4;
+	meson_mmc_reg->gcfg = vconf;
 
 	return;
 }
 
 
-static void aml_sd_inand_clear_response(unsigned *res_buf)
+static void meson_mmc_clear_response(unsigned *res_buf)
 {
 	int i;
 
-	printf("=======> %s\n", __func__);
 	if (res_buf == NULL)
 		return;
 
 	for (i = 0; i < MAX_RESPONSE_BYTES; i++)
 		res_buf[i]=0;
-
-	printf("=======> %s out\n", __func__);
 }
 
-static int aml_sd_init(struct mmc *mmc)
+static int meson_mmc_init(struct mmc *mmc)
 {
-	struct meson_sd_platdata *sdio = mmc->priv;
-	struct mmc_config *cfg;
-	unsigned base;
-
-	printf("=======> %s\n", __func__);
 	mmc->clock = 400000;
-	aml_sd_cfg_swth(mmc);
-
-//	if (sdio->sd_emmc_port == SDIO_PORT_B) {
-		base = get_timer(0);
-
-		while (get_timer(base) < 200)
-			;
-//	}
-
-//	sdio->sd_emmc_init(sdio->sd_emmc_port);
-
-//	if (sdio->sd_emmc_port == SDIO_PORT_B) {
-		base = get_timer(0);
-		while (get_timer(base) < 200)
-			;
-//	}
+	meson_mmc_set_ios(mmc);
 
 	return SD_NO_ERROR;
 }
 
-static int aml_sd_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd,
+static int meson_mmc_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd,
 			   struct mmc_data *data)
 {
-        struct sd_emmc_status *status_irq_reg;
-        struct sd_emmc_start *desc_start;
-        struct meson_sd_platdata *aml_priv;
-        struct sd_emmc_global_regs *sd_emmc_reg;
+        struct meson_mmc_status *status_irq_reg;
+        struct meson_mmc_start *desc_start;
+        struct meson_mmc_platdata *pdata;
+        struct meson_mmc_global_regs *meson_mmc_reg;
         struct cmd_cfg *des_cmd_cur = NULL;
-        struct sd_emmc_desc_info *desc_cur;
+        struct meson_mmc_desc_info *desc_cur;
         int ret = SD_NO_ERROR;
         u32 buffer = 0;
         u32 resp_buffer;
@@ -148,21 +118,20 @@ static int aml_sd_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd,
         u32 status_irq = 0;
         u32 *write_buffer = NULL;
 
-	printf("=======> %s\n", __func__);
         status_irq_reg = (void *) &status_irq;
-        desc_start = (struct sd_emmc_start *) &vstart;
-        aml_priv = mmc->priv;
-        sd_emmc_reg = aml_priv->sd_emmc_reg;
-        desc_cur = (struct sd_emmc_desc_info *) aml_priv->desc_buf;
+        desc_start = (struct meson_mmc_start *) &vstart;
+        pdata = mmc->priv;
+        meson_mmc_reg = pdata->meson_mmc_reg;
+        desc_cur = (struct meson_mmc_desc_info *) pdata->desc_buf;
 
         memset(desc_cur, 0,
-	       (SD_MAX_DESC_MUN >> 2) * sizeof(struct sd_emmc_desc_info));
+	       (SD_MAX_DESC_MUN >> 2) * sizeof(struct meson_mmc_desc_info));
 
         des_cmd_cur = (struct cmd_cfg *) &(desc_cur->cmd_info);
         des_cmd_cur->cmd_index = 0x80 | cmd->cmdidx;
         desc_cur->cmd_arg = cmd->cmdarg;
 
-        aml_sd_inand_clear_response(cmd->response);
+        meson_mmc_clear_response(cmd->response);
 
         if (cmd->resp_type & MMC_RSP_PRESENT) {
                 resp_buffer = (unsigned long) cmd->response;
@@ -220,7 +189,7 @@ static int aml_sd_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd,
         if (data) {
                 if ((data->blocks * data->blocksize < 0x200) &&
 				(data->flags == MMC_DATA_READ)) {
-                        desc_cur->data_addr = (unsigned long) sd_emmc_reg->gping;
+                        desc_cur->data_addr = (unsigned long) meson_mmc_reg->gping;
                         desc_cur->data_addr |= 1<<0;
                 }
         }
@@ -230,20 +199,20 @@ static int aml_sd_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd,
 
         des_cmd_cur->end_of_chain = 1;
 
-        sd_emmc_reg->gstatus = SD_IRQ_ALL;
+        meson_mmc_reg->gstatus = SD_IRQ_ALL;
 
-        invalidate_dcache_range((unsigned long) aml_priv->desc_buf,
-				(unsigned long) (aml_priv->desc_buf + SD_MAX_DESC_MUN * (sizeof(struct sd_emmc_desc_info))));
+        invalidate_dcache_range((unsigned long) pdata->desc_buf,
+				(unsigned long) (pdata->desc_buf + SD_MAX_DESC_MUN * (sizeof(struct meson_mmc_desc_info))));
         desc_start->init = 0;
         desc_start->busy = 1;
-        desc_start->addr = (unsigned long) aml_priv->desc_buf >> 2;
+        desc_start->addr = (unsigned long) pdata->desc_buf >> 2;
 
-        sd_emmc_reg->gcmd_cfg = desc_cur->cmd_info;
-        sd_emmc_reg->gcmd_dat = desc_cur->data_addr;
-        sd_emmc_reg->gcmd_arg = desc_cur->cmd_arg;
+        meson_mmc_reg->gcmd_cfg = desc_cur->cmd_info;
+        meson_mmc_reg->gcmd_dat = desc_cur->data_addr;
+        meson_mmc_reg->gcmd_arg = desc_cur->cmd_arg;
 
         while (1) {
-                status_irq = sd_emmc_reg->gstatus;
+                status_irq = meson_mmc_reg->gstatus;
                 if (status_irq_reg->end_of_chain)
                         break;
         }
@@ -264,18 +233,18 @@ static int aml_sd_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd,
                 if ((data->blocks * data->blocksize < 0x200) &&
 		    (data->flags == MMC_DATA_READ)) {
                         memcpy(data->dest,
-			       (const void *) sd_emmc_reg->gping,
+			       (const void *) meson_mmc_reg->gping,
 			       data->blocks * data->blocksize);
                 }
         }
 
         if (cmd->resp_type & MMC_RSP_136) {
-                cmd->response[0] = sd_emmc_reg->gcmd_rsp3;
-                cmd->response[1] = sd_emmc_reg->gcmd_rsp2;
-                cmd->response[2] = sd_emmc_reg->gcmd_rsp1;
-                cmd->response[3] = sd_emmc_reg->gcmd_rsp0;
+                cmd->response[0] = meson_mmc_reg->gcmd_rsp3;
+                cmd->response[1] = meson_mmc_reg->gcmd_rsp2;
+                cmd->response[2] = meson_mmc_reg->gcmd_rsp1;
+                cmd->response[3] = meson_mmc_reg->gcmd_rsp0;
         } else {
-                cmd->response[0] = sd_emmc_reg->gcmd_rsp0;
+                cmd->response[0] = meson_mmc_reg->gcmd_rsp0;
         }
 
         if (des_cmd_cur->data_wr == 1) {
@@ -293,35 +262,35 @@ static int aml_sd_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd,
         return SD_NO_ERROR;
 }
 
-static const struct mmc_ops aml_sd_emmc_ops = {
-	.send_cmd	= aml_sd_send_cmd,
-	.set_ios	= aml_sd_cfg_swth,
-	.init		= aml_sd_init,
+static const struct mmc_ops meson_mmc_ops = {
+	.send_cmd	= meson_mmc_send_cmd,
+	.set_ios	= meson_mmc_set_ios,
+	.init		= meson_mmc_init,
 };
 
-static int meson_sd_ofdata_to_platdata(struct udevice *dev)
+static int meson_mmc_ofdata_to_platdata(struct udevice *dev)
 {
-	struct meson_sd_platdata *pdata = dev->platdata;
+	struct meson_mmc_platdata *pdata = dev->platdata;
 	fdt_addr_t addr;
 
 	addr = dev_get_addr(dev);
 	if (addr == FDT_ADDR_T_NONE)
 		return -EINVAL;
 
-	pdata->sd_emmc_reg = (struct sd_emmc_global_regs *) addr;
+	pdata->meson_mmc_reg = (struct meson_mmc_global_regs *) addr;
 
 	return 0;
 }
 
-static int meson_sd_probe(struct udevice *dev)
+static int meson_mmc_probe(struct udevice *dev)
 {
-	struct meson_sd_platdata *pdata = dev->platdata;
+	struct meson_mmc_platdata *pdata = dev->platdata;
 	struct mmc_uclass_priv *upriv = dev_get_uclass_priv(dev);
 	struct mmc *mmc;
 	struct mmc_config *cfg;
 
 	cfg = &pdata->cfg;
-	cfg->ops = &aml_sd_emmc_ops;
+	cfg->ops = &meson_mmc_ops;
 
 	cfg->voltages = MMC_VDD_33_34 | MMC_VDD_32_33 | MMC_VDD_31_32 | MMC_VDD_165_195;
 	cfg->host_caps = MMC_MODE_8BIT | MMC_MODE_4BIT | MMC_MODE_HS_52MHz | MMC_MODE_HS;
@@ -335,7 +304,7 @@ static int meson_sd_probe(struct udevice *dev)
 
 	upriv->mmc = mmc;
 
-	pdata->desc_buf = malloc(SD_MAX_DESC_MUN * sizeof(struct sd_emmc_desc_info));
+	pdata->desc_buf = malloc(SD_MAX_DESC_MUN * sizeof(struct meson_mmc_desc_info));
 	if (!pdata->desc_buf)
 		return -EINVAL;
 
@@ -343,16 +312,15 @@ static int meson_sd_probe(struct udevice *dev)
 
 }
 
-static int meson_sd_remove(struct udevice *dev)
+static int meson_mmc_remove(struct udevice *dev)
 {
-	struct meson_sd_platdata *pdata = dev->platdata;
+	struct meson_mmc_platdata *pdata = dev->platdata;
 
 	free(pdata->desc_buf);
-
 	return 0;
 }
 
-static const struct udevice_id meson_sd_match[] = {
+static const struct udevice_id meson_mmc_match[] = {
 	{ .compatible = "amlogic,meson-mmc" },
 	{ /* sentinel */ }
 };
@@ -360,9 +328,9 @@ static const struct udevice_id meson_sd_match[] = {
 U_BOOT_DRIVER(meson_mmc) = {
 	.name = "meson_mmc",
 	.id = UCLASS_MMC,
-	.of_match = meson_sd_match,
-	.probe = meson_sd_probe,
-	.remove = meson_sd_remove,
-	.ofdata_to_platdata = meson_sd_ofdata_to_platdata,
-	.platdata_auto_alloc_size = sizeof(struct meson_sd_platdata),
+	.of_match = meson_mmc_match,
+	.probe = meson_mmc_probe,
+	.remove = meson_mmc_remove,
+	.ofdata_to_platdata = meson_mmc_ofdata_to_platdata,
+	.platdata_auto_alloc_size = sizeof(struct meson_mmc_platdata),
 };

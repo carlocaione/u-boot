@@ -131,14 +131,11 @@ typedef struct _SD_Response_R1 {
 	SD_Card_Status_t card_status;
 } SD_Response_R1_t;
 
-struct meson_sd_platdata {
+struct meson_mmc_platdata {
 	char *name;
 	char *desc_buf;
 	struct mmc_config cfg;
 	struct sd_emmc_global_regs *sd_emmc_reg;
 };
-
-struct meson_sd_platdata *aml_cpu_sd_emmc_get(unsigned port);
-struct mmc *aml_sd_emmc_register(struct meson_sd_platdata *);
 
 #endif

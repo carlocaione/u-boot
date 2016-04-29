@@ -48,7 +48,7 @@
 #define	SD_EMMC_RESP_TIMEOUT_ERROR	BIT(4)
 #define	SD_EMMC_DESC_TIMEOUT_ERROR	BIT(5)
 
-struct sd_emmc_global_regs {
+struct meson_mmc_global_regs {
 	volatile uint32_t gclock;
 	volatile uint32_t gdelay;
 	volatile uint32_t gadjust;
@@ -83,7 +83,7 @@ struct sd_emmc_global_regs {
 	volatile uint32_t gpong[128];
 };
 
-union sd_emmc_setup {
+union meson_mmc_setup {
 	uint32_t d32;
 	struct {
 		unsigned bw:3;
@@ -97,14 +97,14 @@ union sd_emmc_setup {
 	} b;
 };
 
-struct sd_emmc_desc_info {
+struct meson_mmc_desc_info {
 	uint32_t cmd_info;
 	uint32_t cmd_arg;
 	uint32_t data_addr;
 	uint32_t resp_addr;
 };
 
-struct cmd_cfg {
+struct meson_mmc_cmd_cfg {
 	uint32_t length:9;
 	uint32_t block_mode:1;
 	uint32_t r1b:1;
@@ -123,7 +123,7 @@ struct cmd_cfg {
 	uint32_t owner:1;
 };
 
-struct sd_emmc_status {
+struct meson_mmc_status {
 	uint32_t rxd_err:8;		/* [7:0]     RX data CRC error per wire, for multiple block read, the CRC errors are ORed together. */
 	uint32_t txd_err:1;		/* [8]       TX data CRC error, for multiple block write, any one of blocks CRC error. */
 	uint32_t desc_err:1;		/* [9]       SD/eMMC controller doesn¡¯t own descriptor. The owner bit is ¡°0¡±, set cfg_ignore_owner to ignore this error. */
@@ -141,7 +141,7 @@ struct sd_emmc_status {
 	uint32_t desc_wr_rdy:1;		/* [31]      Descriptor write back process is done and it is ready for CPU to read. */
 };
 
-struct sd_emmc_clock {
+struct meson_mmc_clock {
 	uint32_t div:6;			/* [5:0]     Clock divider. Frequency = clock source/cfg_div, Maximum divider 63. */
 					/*           Clock off: cfg_div == 0, the clock is disabled */
 					/*           Divider bypass: cfg_div == 1, clock source is used as core clock without divider. */
@@ -159,7 +159,7 @@ struct sd_emmc_clock {
 	uint32_t reserved26:6;
 };
 
-struct sd_emmc_delay {
+struct meson_mmc_delay {
 	uint32_t dat0:4;		/* [3:0]      Data 0 delay line. */
 	uint32_t dat1:4;		/* [7:4]      Data 1 delay line. */
 	uint32_t dat2:4;		/* [11:8]     Data 2 delay line. */
@@ -170,7 +170,7 @@ struct sd_emmc_delay {
 	uint32_t dat7:4;		/* [31:28]    Data 7 delay line. */
 };
 
-struct sd_emmc_adjust {
+struct meson_mmc_adjust {
 	uint32_t cmd_delay:4;		/* [3:0]      Command delay line. */
 	uint32_t ds_delay:4;            /* [7:4]      DS delay line. */
 	uint32_t cali_sel:4;            /* [11:8]     Select one signal to be tested.*/
@@ -183,7 +183,7 @@ struct sd_emmc_adjust {
 	uint32_t reserved22:10;
 };
 
-struct sd_emmc_calout {
+struct meson_mmc_calout {
 	uint32_t cali_idx:6;		/* [5:0]      Calibration reading. The event happens at this index. */
 	uint32_t reserved6:1;
 	uint32_t cali_vld:1;		/* [7]        The reading is valid. */
@@ -191,7 +191,7 @@ struct sd_emmc_calout {
 	uint32_t reserved16:16;
 };
 
-struct sd_emmc_start {
+struct meson_mmc_start {
 	uint32_t init:1;		/* [0]        1: Read descriptor from internal SRAM, limited to 32 descriptors. */
 					/*            0: Read descriptor from external DDR */
 	uint32_t busy:1;		/* [1]        1: Start command chain execution process. 0: Stop */
@@ -200,7 +200,7 @@ struct sd_emmc_start {
 					/*            When external DDR is used, the valid address is anywhere in DDR, the length of chain is unlimited.*/
 };
 
-struct sd_emmc_config {
+struct meson_mmc_config {
 	uint32_t bus_width:2;		/* [1:0]      0: 1 bit, 1: 4 bits, 2: 8 bits, 3: 2 bits (not supported) */
 	uint32_t ddr:1;			/* [2]        1: DDR mode, 0: SDR mode */
 	uint32_t dc_ugt:1;		/* [3]        1: DDR access urgent, 0: DDR access normal. */
@@ -228,7 +228,7 @@ struct sd_emmc_config {
 	uint32_t revd:8;		/* [31:26]    reved */
 };
 
-struct sd_emmc_irq_en {
+struct meson_mmc_irq_en {
 	uint32_t rxd_err:8;		/* [7:0]      RX data CRC error per wire. */
 	uint32_t txd_err:1;		/* [8]        TX data CRC error. */
 	uint32_t desc_err:1;		/* [9]        SD/eMMC controller doesn¡¯t own descriptor. */
@@ -241,13 +241,13 @@ struct sd_emmc_irq_en {
 	uint32_t revd:16;		/* [31:16]    reved */
 };
 
-struct sd_emmc_data_info {
+struct meson_mmc_data_info {
 	uint32_t cnt:10;		/* [9:0]      Rxd words received from BUS. Txd words received from DDR. */
 	uint32_t blk:9;			/* [24:16]    Rxd Blocks received from BUS. Txd blocks received from DDR. */
 	uint32_t revd:30;		/* [31:17]    Reved. */
 };
 
-struct sd_emmc_card_info {
+struct meson_mmc_card_info {
 	uint32_t txd_cnt:10;		/* [9:0]      Txd BUS cycle counter. */
 	uint32_t txd_blk:9;		/* [24:16]    Txd BUS block counter. */
 	uint32_t revd:30;		/* [31:17]    Reved. */
