@@ -28,14 +28,14 @@
 #define SD_EMMC_BASE_B			0xd0072000
 #define SD_EMMC_BASE_C			0xd0074000
 
-#define NEWSD_IRQ_ALL			0x3fff
+#define SD_IRQ_ALL			0x3fff
 
 #define SD_EMMC_CLKSRC_24M		24000000
 #define SD_EMMC_CLKSRC_DIV2		1000000000
 
-#define NEWSD_IRQ_EN_ALL_INIT
-#define NEWSD_MAX_DESC_MUN		512
-#define NEWSD_BOUNCE_REQ_SIZE		(512 * 1024)
+#define SD_IRQ_EN_ALL_INIT
+#define SD_MAX_DESC_MUN			512
+#define SD_BOUNCE_REQ_SIZE		(512 * 1024)
 #define MAX_BLOCK_COUNTS		256
 #define SD_EMMC_CLKSRC			24000000
 
@@ -131,26 +131,14 @@ typedef struct _SD_Response_R1 {
 	SD_Card_Status_t card_status;
 } SD_Response_R1_t;
 
-struct aml_card_sd_info {
-	unsigned sd_emmc_port;
-	unsigned sd_emmc_reg_base;
+struct meson_sd_platdata {
 	char *name;
-	int inited_flag;
-	int removed_flag;
-	int init_retry;
-	int single_blk_failed;
 	char *desc_buf;
 	struct mmc_config cfg;
 	struct sd_emmc_global_regs *sd_emmc_reg;
-	dma_addr_t desc_dma_addr;
-	int  (* sd_emmc_init)(unsigned port);
-	int  (* sd_emmc_detect)(unsigned port);
-	void (* sd_emmc_pwr_prepare)(unsigned port);
-	void (* sd_emmc_pwr_on)(unsigned port);
-	void (* sd_emmc_pwr_off)(unsigned port);
 };
 
-struct aml_card_sd_info *aml_cpu_sd_emmc_get(unsigned port);
-struct mmc *aml_sd_emmc_register(struct aml_card_sd_info *);
+struct meson_sd_platdata *aml_cpu_sd_emmc_get(unsigned port);
+struct mmc *aml_sd_emmc_register(struct meson_sd_platdata *);
 
 #endif

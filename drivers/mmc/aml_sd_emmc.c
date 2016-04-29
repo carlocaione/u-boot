@@ -24,43 +24,27 @@
 #include <mmc.h>
 #include <asm/arch/sd_emmc.h>
 #include <asm/arch/cpu_sdio.h>
+#include <dm/device.h>
+#include <fdtdec.h>
 
-extern unsigned aml_sd_debug_board_1bit_flag;
-
-static unsigned long aml_sd_emmc_base_addr[3] = {
-	SD_EMMC_BASE_A,
-	SD_EMMC_BASE_B,
-	SD_EMMC_BASE_C
-};
-
-static struct aml_card_sd_info aml_sd_emmc_ports[] = {
-	{ .sd_emmc_port = SDIO_PORT_A, .name = "SDIO Port A" },
-	{ .sd_emmc_port = SDIO_PORT_B, .name = "SDIO Port B" },
-	{ .sd_emmc_port = SDIO_PORT_C, .name = "SDIO Port C" },
-};
-
-struct aml_card_sd_info *aml_cpu_sd_emmc_get(unsigned port)
-{
-	if (port < SDIO_PORT_C + 1)
-		return &aml_sd_emmc_ports[port];
-
-	return NULL;
-}
+DECLARE_GLOBAL_DATA_PTR;
 
 static void aml_sd_cfg_swth(struct mmc *mmc)
 {
 	unsigned sd_emmc_clkc =	0, clk, clk_src, clk_div;
-	unsigned vconf;
+	uint32_t vconf;
 	unsigned bus_width;
-	struct aml_card_sd_info *aml_priv;
+	struct meson_sd_platdata *aml_priv;
 	struct sd_emmc_global_regs *sd_emmc_reg;
 	struct sd_emmc_config *sd_emmc_cfg;
 
+	printf("=======> %s\n", __func__);
 	aml_priv = mmc->priv;
 	sd_emmc_reg = aml_priv->sd_emmc_reg;
 	sd_emmc_cfg = (struct sd_emmc_config *) &vconf;
 	bus_width = (mmc->bus_width == 1) ? 0 : (mmc->bus_width / 4);
 
+	printf("=======> %s 1, sd_emmc_reg:0x%08x\n", __func__, sd_emmc_reg);
 	if (mmc->clock > 12000000) {
 		clk = SD_EMMC_CLKSRC_DIV2;
 		clk_src = 1;
@@ -70,11 +54,13 @@ static void aml_sd_cfg_swth(struct mmc *mmc)
 	}
 	clk_div= clk / mmc->clock;
 
+	printf("=======> %s 1a\n", __func__);
 	if (mmc->clock < mmc->cfg->f_min)
 		mmc->clock=mmc->cfg->f_min;
 	if (mmc->clock > mmc->cfg->f_max)
 		mmc->clock=mmc->cfg->f_max;
 
+	printf("=======> %s 1b\n", __func__);
 	sd_emmc_clkc = ((0 << Cfg_irq_sdio_sleep_ds) |
 			(0 << Cfg_irq_sdio_sleep) |
 			(1 << Cfg_always_on) |
@@ -87,91 +73,61 @@ static void aml_sd_cfg_swth(struct mmc *mmc)
 			(clk_src << Cfg_src) |
 			(clk_div << Cfg_div));
 
+	printf("=======> %s 1c\n", __func__);
 	sd_emmc_reg->gclock = sd_emmc_clkc;
+	printf("=======> %s 1d\n", __func__);
 	vconf = sd_emmc_reg->gcfg;
 
+	printf("=======> %s 2\n", __func__);
 	sd_emmc_cfg->bus_width = bus_width;
 	sd_emmc_cfg->bl_len = 9;
 	sd_emmc_cfg->resp_timeout = 7;
 	sd_emmc_cfg->rc_cc = 4;
 	sd_emmc_reg->gcfg = vconf;
+	printf("=======> %s out\n", __func__);
 
 	return;
 }
 
-static int aml_sd_inand_check_insert(struct mmc *mmc)
-{
-	int level;
-	struct aml_card_sd_info *sd_inand_info;
-	unsigned sd_emmc_port;
-
-	sd_inand_info = mmc->priv;
-	sd_emmc_port = sd_inand_info->sd_emmc_port;
-	level = sd_inand_info->sd_emmc_detect(sd_emmc_port);
-
-	if (level) {
-		if (sd_inand_info->init_retry) {
-			sd_inand_info->sd_emmc_pwr_off(sd_emmc_port);
-			sd_inand_info->init_retry = 0;
-		}
-		if (sd_inand_info->inited_flag) {
-			sd_inand_info->sd_emmc_pwr_off(sd_emmc_port);
-			sd_inand_info->removed_flag = 1;
-			sd_inand_info->inited_flag = 0;
-		}
-		return 0;
-	}
-
-	return 1;
-}
 
 static void aml_sd_inand_clear_response(unsigned *res_buf)
 {
 	int i;
 
+	printf("=======> %s\n", __func__);
 	if (res_buf == NULL)
 		return;
 
 	for (i = 0; i < MAX_RESPONSE_BYTES; i++)
 		res_buf[i]=0;
+
+	printf("=======> %s out\n", __func__);
 }
 
-static int aml_sd_inand_staff_init(struct mmc *mmc)
+static int aml_sd_init(struct mmc *mmc)
 {
-	struct aml_card_sd_info *sdio = mmc->priv;
+	struct meson_sd_platdata *sdio = mmc->priv;
 	struct mmc_config *cfg;
 	unsigned base;
 
-	sdio->sd_emmc_pwr_prepare(sdio->sd_emmc_port);
-	sdio->sd_emmc_pwr_off(sdio->sd_emmc_port);
-
+	printf("=======> %s\n", __func__);
 	mmc->clock = 400000;
 	aml_sd_cfg_swth(mmc);
 
-	if (sdio->sd_emmc_port == SDIO_PORT_B) {
+//	if (sdio->sd_emmc_port == SDIO_PORT_B) {
 		base = get_timer(0);
 
 		while (get_timer(base) < 200)
 			;
-	}
+//	}
 
-	sdio->sd_emmc_pwr_on(sdio->sd_emmc_port);
-	sdio->sd_emmc_init(sdio->sd_emmc_port);
+//	sdio->sd_emmc_init(sdio->sd_emmc_port);
 
-	if (aml_sd_debug_board_1bit_flag == 1) {
-		cfg = &((struct aml_card_sd_info *) mmc->priv)->cfg;
-		cfg->host_caps = MMC_MODE_HS;
-		mmc->cfg = cfg;
-	}
-
-	if (sdio->sd_emmc_port == SDIO_PORT_B) {
+//	if (sdio->sd_emmc_port == SDIO_PORT_B) {
 		base = get_timer(0);
 		while (get_timer(base) < 200)
 			;
-	}
-
-	if (!sdio->inited_flag)
-		sdio->inited_flag = 1;
+//	}
 
 	return SD_NO_ERROR;
 }
@@ -181,7 +137,7 @@ static int aml_sd_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd,
 {
         struct sd_emmc_status *status_irq_reg;
         struct sd_emmc_start *desc_start;
-        struct aml_card_sd_info *aml_priv;
+        struct meson_sd_platdata *aml_priv;
         struct sd_emmc_global_regs *sd_emmc_reg;
         struct cmd_cfg *des_cmd_cur = NULL;
         struct sd_emmc_desc_info *desc_cur;
@@ -192,6 +148,7 @@ static int aml_sd_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd,
         u32 status_irq = 0;
         u32 *write_buffer = NULL;
 
+	printf("=======> %s\n", __func__);
         status_irq_reg = (void *) &status_irq;
         desc_start = (struct sd_emmc_start *) &vstart;
         aml_priv = mmc->priv;
@@ -199,7 +156,7 @@ static int aml_sd_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd,
         desc_cur = (struct sd_emmc_desc_info *) aml_priv->desc_buf;
 
         memset(desc_cur, 0,
-	       (NEWSD_MAX_DESC_MUN >> 2) * sizeof(struct sd_emmc_desc_info));
+	       (SD_MAX_DESC_MUN >> 2) * sizeof(struct sd_emmc_desc_info));
 
         des_cmd_cur = (struct cmd_cfg *) &(desc_cur->cmd_info);
         des_cmd_cur->cmd_index = 0x80 | cmd->cmdidx;
@@ -273,10 +230,10 @@ static int aml_sd_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd,
 
         des_cmd_cur->end_of_chain = 1;
 
-        sd_emmc_reg->gstatus = NEWSD_IRQ_ALL;
+        sd_emmc_reg->gstatus = SD_IRQ_ALL;
 
         invalidate_dcache_range((unsigned long) aml_priv->desc_buf,
-				(unsigned long) (aml_priv->desc_buf + NEWSD_MAX_DESC_MUN * (sizeof(struct sd_emmc_desc_info))));
+				(unsigned long) (aml_priv->desc_buf + SD_MAX_DESC_MUN * (sizeof(struct sd_emmc_desc_info))));
         desc_start->init = 0;
         desc_start->busy = 1;
         desc_start->addr = (unsigned long) aml_priv->desc_buf >> 2;
@@ -336,40 +293,34 @@ static int aml_sd_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd,
         return SD_NO_ERROR;
 }
 
-static int aml_sd_init(struct mmc *mmc)
-{
-	struct aml_card_sd_info *sdio = mmc->priv;
-
-	if (sdio->inited_flag) {
-		sdio->sd_emmc_init(sdio->sd_emmc_port);
-		mmc->cfg->ops->set_ios(mmc);
-		return 0;
-	}
-
-	if (aml_sd_inand_check_insert(mmc)) {
-		aml_sd_inand_staff_init(mmc);
-		return 0;
-	}
-
-	return 1;
-}
-
 static const struct mmc_ops aml_sd_emmc_ops = {
 	.send_cmd	= aml_sd_send_cmd,
 	.set_ios	= aml_sd_cfg_swth,
 	.init		= aml_sd_init,
 };
 
-struct mmc *aml_sd_emmc_register(struct aml_card_sd_info *aml_priv)
+static int meson_sd_ofdata_to_platdata(struct udevice *dev)
 {
+	struct meson_sd_platdata *pdata = dev->platdata;
+	fdt_addr_t addr;
+
+	addr = dev_get_addr(dev);
+	if (addr == FDT_ADDR_T_NONE)
+		return -EINVAL;
+
+	pdata->sd_emmc_reg = (struct sd_emmc_global_regs *) addr;
+
+	return 0;
+}
+
+static int meson_sd_probe(struct udevice *dev)
+{
+	struct meson_sd_platdata *pdata = dev->platdata;
+	struct mmc_uclass_priv *upriv = dev_get_uclass_priv(dev);
+	struct mmc *mmc;
 	struct mmc_config *cfg;
 
-	aml_priv->removed_flag = 1;
-	aml_priv->inited_flag = 0;
-	aml_priv->sd_emmc_reg = (struct sd_emmc_global_regs *) aml_sd_emmc_base_addr[aml_priv->sd_emmc_port];
-
-	cfg = &aml_priv->cfg;
-	cfg->name = aml_priv->name;
+	cfg = &pdata->cfg;
 	cfg->ops = &aml_sd_emmc_ops;
 
 	cfg->voltages = MMC_VDD_33_34 | MMC_VDD_32_33 | MMC_VDD_31_32 | MMC_VDD_165_195;
@@ -378,5 +329,40 @@ struct mmc *aml_sd_emmc_register(struct aml_card_sd_info *aml_priv)
 	cfg->f_max = 50000000;
 	cfg->b_max = 256;
 
-	return mmc_create(cfg, aml_priv);
+	mmc = mmc_create(cfg, pdata);
+	if (!mmc)
+		return -ENOMEM;
+
+	upriv->mmc = mmc;
+
+	pdata->desc_buf = malloc(SD_MAX_DESC_MUN * sizeof(struct sd_emmc_desc_info));
+	if (!pdata->desc_buf)
+		return -EINVAL;
+
+	return 0;
+
 }
+
+static int meson_sd_remove(struct udevice *dev)
+{
+	struct meson_sd_platdata *pdata = dev->platdata;
+
+	free(pdata->desc_buf);
+
+	return 0;
+}
+
+static const struct udevice_id meson_sd_match[] = {
+	{ .compatible = "amlogic,meson-mmc" },
+	{ /* sentinel */ }
+};
+
+U_BOOT_DRIVER(meson_mmc) = {
+	.name = "meson_mmc",
+	.id = UCLASS_MMC,
+	.of_match = meson_sd_match,
+	.probe = meson_sd_probe,
+	.remove = meson_sd_remove,
+	.ofdata_to_platdata = meson_sd_ofdata_to_platdata,
+	.platdata_auto_alloc_size = sizeof(struct meson_sd_platdata),
+};
